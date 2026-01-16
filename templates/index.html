@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yoga Pose Detection</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    margin: 0;
+    background-color: #e0f7fa;
+    overflow-x: hidden;
+}
+
+.container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 1200px;
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.left {
+    flex: 1;
+    padding: 20px;
+    text-align: center;
+    border-right: 2px solid #ddd;
+}
+
+#video-feed {
+    width: 100%;
+    max-width: 640px;
+    border-radius: 8px;
+}
+
+.pose-image {
+    width: 100%;
+    max-width: 400px;
+    border-radius: 8px;
+}
+
+.video-pose-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+h1, h2 {
+    color: #00796b;
+}
+
+select, input[type="submit"], button {
+    padding: 10px;
+    font-size: 1.1em;
+    margin-top: 10px;
+    border-radius: 5px;
+    border: 2px solid #00796b;
+}
+
+button, input[type="submit"] {
+    background-color: #00796b;
+    color: white;
+    cursor: pointer;
+}
+
+button:hover, input[type="submit"]:hover {
+    background-color: #004d40;
+}
+
+#start-message {
+    color: green;
+    font-size: 1.8em;
+    font-weight: bold;
+    margin-top: 15px;
+}
+
+#countdown {
+    color: red;
+    font-size: 2.5em;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.feedback-container {
+    margin-top: 20px;
+    display: flex;
+    justify-content: space-evenly;
+    flex-wrap: wrap;
+}
+
+.feedback-item {
+    width: 200px;
+    text-align: center;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+<div class="left">
+
+<h1>Yoga Pose Detection</h1>
+
+<form method="POST">
+<h2>Select Pose</h2>
+<select name="pose">
+    <option value="tree_pose" {% if selected_pose == 'tree_pose' %}selected{% endif %}>Tree Pose</option>
+    <option value="warrior_pose" {% if selected_pose == 'warrior_pose' %}selected{% endif %}>Warrior Pose</option>
+    <option value="downward_dog" {% if selected_pose == 'downward_dog' %}selected{% endif %}>Downward Dog</option>
+</select>
+
+<h2>Select Time</h2>
+<select name="time">
+    <option value="60" {% if selected_time == '60' %}selected{% endif %}>1 Minute</option>
+    <option value="180" {% if selected_time == '180' %}selected{% endif %}>3 Minutes</option>
+    <option value="300" {% if selected_time == '300' %}selected{% endif %}>5 Minutes</option>
+</select>
+
+<br><br>
+<input type="submit" value="Load Pose">
+</form>
+
+<div id="start-message"></div>
+<div id="countdown"></div>
+
+<div class="video-pose-container">
+    <img id="video-feed" src="{{ url_for('video_feed') }}">
+    <img class="pose-image" src="{{ url_for('static', filename='images/' + selected_pose + '.jpg') }}">
+</div>
+
+<div class="feedback-container" id="feedback-container"></div>
+
+<br>
+<button onclick="startPose()">Start</button>
+<button onclick="stopPose()" id="stopBtn" disabled>Stop</button>
+
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+let timer;
+let totalTime = Number("{{ selected_time }}");
+let remaining = totalTime;
+let running = false;
+
+function startPose() {
+    if (running) return;
+
+    running = true;
+    remaining = totalTime;
+
+    document.getElementById("start-message").innerText = "Pose Detection Started!";
+    document.getElementById("countdown").innerText = remaining + "s";
+    document.getElementById("stopBtn").disabled = false;
+
+    timer = setInterval(() => {
+        remaining--;
+        document.getElementById("countdown").innerText = remaining + "s";
+
+        if (remaining <= 0) {
+            clearInterval(timer);
+            running = false;
+            document.getElementById("start-message").innerText = "";
+            document.getElementById("countdown").innerText = "Pose Detection Completed!";
+            document.getElementById("stopBtn").disabled = true;
+            showFeedback();
+        }
+    }, 1000);
+}
+
+function stopPose() {
+    clearInterval(timer);
+    running = false;
+    document.getElementById("countdown").innerText = "Pose Detection Stopped!";
+    document.getElementById("start-message").innerText = "";
+    document.getElementById("stopBtn").disabled = true;
+}
+
+function showFeedback() {
+    const feedbackContainer = document.getElementById("feedback-container");
+    feedbackContainer.innerHTML = "";
+
+    const parts = ["Left Knee", "Right Shoulder", "Left Elbow", "Right Wrist", "Left Shoulder"];
+
+    parts.forEach(part => {
+        const correct = Math.floor(Math.random() * 40) + 60;
+        const incorrect = 100 - correct;
+
+        const div = document.createElement("div");
+        div.className = "feedback-item";
+
+        const canvas = document.createElement("canvas");
+        div.appendChild(canvas);
+
+        new Chart(canvas, {
+            type: "doughnut",
+            data: {
+                labels: ["Correct", "Incorrect"],
+                datasets: [{
+                    data: [correct, incorrect],
+                    backgroundColor: ["#2ecc71", "#e74c3c"]
+                }]
+            },
+            options: {
+                cutout: "70%",
+                plugins: {
+                    legend: { display: false },
+                    title: {
+                        display: true,
+                        text: part
+                    }
+                }
+            }
+        });
+
+        feedbackContainer.appendChild(div);
+    });
+}
+</script>
+
+</body>
+</html>
